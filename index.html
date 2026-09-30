@@ -31,9 +31,17 @@ button:disabled{background:#242b34;color:#5b6472;cursor:not-allowed}
 .status a{color:var(--accent);margin-inline-start:auto;text-decoration:none;font-weight:600}
 .spin{width:14px;height:14px;border:2px solid #34503a;border-top-color:var(--accent);border-radius:50%;animation:s .8s linear infinite;flex:none}
 @keyframes s{to{transform:rotate(360deg)}}
-details{margin-top:8px;font-size:12px}
-summary{cursor:pointer;color:var(--muted)}
-pre{margin:6px 0 0;padding:10px;background:#0b0e13;border:1px solid var(--line);border-radius:8px;direction:ltr;text-align:left;white-space:pre-wrap;max-height:180px;overflow:auto;font-size:11px;color:#c5cad3}
+.cbtn{margin:0;margin-inline-start:auto;width:auto;padding:5px 10px;font-size:12px;background:#2a1b1d;color:var(--err);border:1px solid #5a2a2e;border-radius:8px;font-weight:600}
+.cbtn:hover{filter:brightness(1.25)}
+.modal{position:fixed;inset:0;background:#000a;display:flex;align-items:center;justify-content:center;padding:14px;z-index:10}
+.modal[hidden]{display:none}
+.term{width:100%;max-width:720px;height:min(70vh,520px);display:flex;flex-direction:column;background:#0b0e13;border:1px solid var(--line);border-radius:12px;overflow:hidden;box-shadow:0 20px 60px #000c}
+.thead{display:flex;align-items:center;gap:8px;padding:8px 12px;background:#12171d;border-bottom:1px solid var(--line);font-size:12px;color:var(--muted)}
+.thead span{margin-inline-end:auto;direction:ltr}
+.thead button{margin:0;width:auto;padding:4px 10px;font-size:12px;background:#242b34;color:var(--text);font-weight:500}
+.tbody{flex:1;overflow:auto;padding:10px 12px;direction:ltr;text-align:left;font:12px/1.5 ui-monospace,Consolas,Menlo,monospace;color:#b7bfcb;white-space:pre-wrap;word-break:break-word}
+.tbody .e{color:#ff7b7b}
+.tbody .w{color:#e6c76b}
 </style>
 </head>
 <body>
@@ -55,13 +63,19 @@ pre{margin:6px 0 0;padding:10px;background:#0b0e13;border:1px solid var(--line);
 
   <button id="btn" disabled>קמפל</button>
   <div class="status" id="status"></div>
-  <details id="det" hidden><summary>פרטי השגיאה</summary><pre id="log"></pre></details>
 </main>
+
+<div class="modal" id="modal" hidden>
+  <div class="term">
+    <div class="thead"><span>build console</span><button id="copy">העתק</button><button id="close">סגור</button></div>
+    <div class="tbody" id="cbody"></div>
+  </div>
+</div>
 
 <script>
 const $=id=>document.getElementById(id);
-const drop=$('drop'),input=$('file'),btn=$('btn'),st=$('status'),det=$('det'),log=$('log');
-let file=null,timer=null;
+const drop=$('drop'),input=$('file'),btn=$('btn'),st=$('status'),modal=$('modal');
+let file=null,timer=null,lastLog='';
 
 function show(type,text,spin){
   st.className='status '+type;st.textContent='';
@@ -73,7 +87,7 @@ function setFile(f){
   if(!/\.zip$/i.test(f.name)){show('err','צריך קובץ ZIP');return}
   file=f;$('title').textContent='הקובץ נבחר';
   $('fname').textContent=f.name+' · '+Math.max(1,Math.round(f.size/1024))+' KB';
-  drop.classList.add('has');btn.disabled=false;show('','');det.hidden=true;
+  drop.classList.add('has');btn.disabled=false;show('','');
 }
 input.onchange=()=>setFile(input.files[0]);
 ['dragenter','dragover'].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.add('over')}));
@@ -82,7 +96,7 @@ drop.addEventListener('drop',ev=>setFile(ev.dataTransfer.files[0]));
 
 btn.onclick=async()=>{
   if(!file)return;
-  btn.disabled=true;det.hidden=true;
+  btn.disabled=true;
   let t=0;show('','מקמפל… 0 שנ׳',true);
   timer=setInterval(()=>{t++;show('','מקמפל… '+t+' שנ׳',true)},1000);
   try{
@@ -99,11 +113,28 @@ btn.onclick=async()=>{
     }else{
       const d=await res.json();
       show('err',d.error||'שגיאה');
-      if(d.log){log.textContent=d.log;det.hidden=false;det.open=true}
+      lastLog=d.log||d.error||'unknown error';
+      const cb=document.createElement('button');cb.className='cbtn';cb.textContent='🖥️ פתח קונסול';
+      cb.onclick=openConsole;st.append(cb);
+      openConsole();
     }
   }catch(e){show('err','שגיאה: '+e.message)}
   clearInterval(timer);btn.disabled=false;
 };
+
+function openConsole(){
+  const body=$('cbody');body.textContent='';
+  lastLog.split('\n').forEach(l=>{
+    const d=document.createElement('div');d.textContent=l||' ';
+    if(/\[ERROR\]|error:/i.test(l))d.className='e';else if(/\[WARN/i.test(l))d.className='w';
+    body.append(d);
+  });
+  modal.hidden=false;body.scrollTop=body.scrollHeight;
+}
+$('close').onclick=()=>modal.hidden=true;
+modal.onclick=e=>{if(e.target===modal)modal.hidden=true};
+document.addEventListener('keydown',e=>{if(e.key==='Escape')modal.hidden=true});
+$('copy').onclick=async e=>{try{await navigator.clipboard.writeText(lastLog);e.target.textContent='הועתק ✓'}catch{e.target.textContent='נכשל'}setTimeout(()=>e.target.textContent='העתק',1500)};
 </script>
 </body>
 </html>
