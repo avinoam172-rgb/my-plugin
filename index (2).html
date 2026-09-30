@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>מקמפל פלאגינים למיינקראפט</title>
+<style>
+  body{font-family:system-ui,sans-serif;background:#1b1f23;color:#eee;display:flex;justify-content:center;padding:40px 16px}
+  .box{background:#262b31;padding:28px;border-radius:12px;max-width:480px;width:100%}
+  h1{margin-top:0;font-size:22px}
+  input,button{width:100%;padding:12px;margin-top:12px;border-radius:8px;border:0;font-size:16px;box-sizing:border-box}
+  input{background:#333a42;color:#eee}
+  button{background:#4caf50;color:#fff;cursor:pointer}
+  button:disabled{opacity:.5}
+  pre{white-space:pre-wrap;direction:ltr;text-align:left;font-size:12px;max-height:240px;overflow:auto}
+</style>
+</head>
+<body>
+<div class="box">
+  <h1>קימפול פלאגין מיינקראפט</h1>
+  <p>העלה ZIP עם pom.xml, plugin.yml וקבצי Java, וקבל JAR.</p>
+  <input type="file" id="file" accept=".zip">
+  <button id="btn">קמפל</button>
+  <p id="status"></p>
+  <pre id="log"></pre>
+</div>
+<script>
+const btn=document.getElementById('btn'),st=document.getElementById('status'),log=document.getElementById('log');
+btn.onclick=async()=>{
+  const f=document.getElementById('file').files[0];
+  if(!f){st.textContent='בחר קובץ ZIP קודם';return}
+  btn.disabled=true;log.textContent='';st.textContent='מקמפל... בפעם הראשונה זה יכול לקחת כמה דקות';
+  try{
+    const fd=new FormData();fd.append('project',f);
+    const res=await fetch('/build',{method:'POST',body:fd});
+    if(res.ok){
+      const cd=res.headers.get('Content-Disposition')||'';
+      const m=cd.match(/filename="?([^";]+)"?/);
+      const a=document.createElement('a');
+      a.href=URL.createObjectURL(await res.blob());
+      a.download=m?m[1]:'plugin.jar';a.click();
+      st.textContent='הסתיים! ההורדה התחילה.';
+    }else{
+      const d=await res.json();st.textContent=d.error;log.textContent=d.log||'';
+    }
+  }catch(e){st.textContent='שגיאה: '+e.message}
+  btn.disabled=false;
+};
+</script>
+</body>
+</html>
